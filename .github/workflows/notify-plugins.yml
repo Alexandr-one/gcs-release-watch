@@ -1,8 +1,9 @@
 name: Notify plugins
 
 # The hook: tell the plugin repositories that a release is published, so they build for it at once
-# instead of waiting for their scheduled check. Needs the secret PLUGINS_DISPATCH_TOKEN: a token
-# with write access to the listed repositories (fine-grained: Contents read and write).
+# instead of waiting for their scheduled check. Needs the secret PLUGINS_DISPATCH_TOKEN: a
+# fine-grained token limited to the listed repositories with the single permission
+# Actions: read and write. It can start their workflows and nothing else (no access to the code).
 on:
   release:
     types: [published]
@@ -24,9 +25,10 @@ jobs:
               echo "::warning::PLUGINS_DISPATCH_TOKEN is not set, ${{ matrix.repo }} will pick the release up on its schedule"
               exit 0
           fi
+          # runs the plugin workflow in its "auto" mode: it checks the latest release itself
           curl -fsS -X POST \
               -H "Authorization: Bearer $TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ matrix.repo }}/dispatches" \
-              -d "{\"event_type\":\"gcs-release\",\"client_payload\":{\"tag\":\"$TAG\"}}"
+              "https://api.github.com/repos/${{ matrix.repo }}/actions/workflows/release.yml/dispatches" \
+              -d '{"ref":"main","inputs":{"mode":"auto"}}'
           echo "notified ${{ matrix.repo }}: $TAG"
