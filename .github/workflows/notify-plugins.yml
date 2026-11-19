@@ -1,0 +1,32 @@
+name: Notify plugins
+
+# The hook: tell the plugin repositories that a release is published, so they build for it at once
+# instead of waiting for their scheduled check. Needs the secret PLUGINS_DISPATCH_TOKEN: a token
+# with write access to the listed repositories (fine-grained: Contents read and write).
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - Alexandr-one/plugin-release-test
+    steps:
+      - env:
+          TOKEN: ${{ secrets.PLUGINS_DISPATCH_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+              echo "::warning::PLUGINS_DISPATCH_TOKEN is not set, ${{ matrix.repo }} will pick the release up on its schedule"
+              exit 0
+          fi
+          curl -fsS -X POST \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ matrix.repo }}/dispatches" \
+              -d "{\"event_type\":\"gcs-release\",\"client_payload\":{\"tag\":\"$TAG\"}}"
+          echo "notified ${{ matrix.repo }}: $TAG"
